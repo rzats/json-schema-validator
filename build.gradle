@@ -1,0 +1,32 @@
+group 'org.rzats.jsonschema'
+version '1.0-SNAPSHOT'
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath('org.springframework.boot:spring-boot-gradle-plugin:1.4.2.RELEASE')
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'eclipse'
+apply plugin: 'spring-boot'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile('com.google.guava:guava:19.0')
+    compile('com.github.fge:json-schema-validator:2.2.6')
+    compile('org.springframework.boot:spring-boot-starter-web')
+    compile('org.rocksdb:rocksdbjni:4.11.2')
+
+    testCompile('junit:junit:4.11')
+    testCompile('org.springframework.boot:spring-boot-starter-test')
+}

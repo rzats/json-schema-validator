@@ -37,6 +37,11 @@ public class JsonValidatorController implements ErrorController {
         return RocksDB.open(databaseOptions, Paths.get("").toAbsolutePath().toString() + "/rocksdb");
     }
 
+    private static String responseToString(JsonValidatorResponse response) throws JsonProcessingException {
+        ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
+        return ow.writeValueAsString(response);
+    }
+
     @RequestMapping(value = ERROR_PATH)
     public JsonValidatorResponse error(HttpServletResponse response) {
         return new JsonValidatorResponse(null, null, "error",
@@ -48,20 +53,18 @@ public class JsonValidatorController implements ErrorController {
         try (Options databaseOptions = createDatabaseOptions();
              RocksDB databaseConnection = createDatabaseConnection(databaseOptions)) {
             byte[] schema = databaseConnection.get(id.getBytes());
-            String schemaString = new String(schema);
-            return schemaString;
-        } catch (RocksDBException e) {
-            JsonValidatorResponse response = new JsonValidatorResponse("downloadSchema", id, "success", null);
-            ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
-            String json = null;
-            try {
-                json = ow.writeValueAsString(response);
-            } catch (JsonProcessingException e1) {
-                e1.printStackTrace();
+            if (schema == null) {
+                // ...
             }
-            return json;
+            return new String(schema);
+        } catch (RocksDBException e) {
+            try {
+                String responseString = responseToString(new JsonValidatorResponse("uploadSchema", id, "error", String.format("Database exception: %s", e.getMessage())));
+                return responseString;
+            } catch (JsonProcessingException e1) {
+                return String.format("Exception while converting response to string: %s", e1.getMessage());
+            }
         }
-
     }
 
     @RequestMapping(method = RequestMethod.POST, value = SCHEMA_PATH + "{SCHEMAID}", consumes = JSON_CONTENT_TYPE, produces = JSON_CONTENT_TYPE)
@@ -71,9 +74,8 @@ public class JsonValidatorController implements ErrorController {
             databaseConnection.put(id.getBytes(), schema.getBytes());
             return new JsonValidatorResponse("uploadSchema", id, "success", null);
         } catch (RocksDBException e) {
-            e.printStackTrace();
+            return new JsonValidatorResponse("uploadSchema", id, "error", String.format("Database exception: %s", e.getMessage()));
         }
-        return null;
     }
 
     @RequestMapping(method = RequestMethod.POST, value = VALIDATE_PATH + "{SCHEMAID}", consumes = JSON_CONTENT_TYPE, produces = JSON_CONTENT_TYPE)
@@ -96,14 +98,12 @@ public class JsonValidatorController implements ErrorController {
                 return new JsonValidatorResponse("validateDocument", id, "error", report.toString());
             }
         } catch (RocksDBException e) {
-            e.printStackTrace();
+            return new JsonValidatorResponse("validateDocument", id, "error", String.format("Database exception: %s", e.getMessage()));
         } catch (IOException e) {
-            e.printStackTrace();
+            return new JsonValidatorResponse("validateDocument", id, "error", String.format("Exception while processing JSON: %s", e.getMessage()));
         } catch (ProcessingException e) {
-            e.printStackTrace();
+            return new JsonValidatorResponse("validateDocument", id, "error", String.format("Exception while processing JSON schema: %s", e.getMessage()));
         }
-        return new JsonValidatorResponse("validateDocument", id, "success", json);
-
     }
 
     @Override

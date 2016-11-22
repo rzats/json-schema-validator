@@ -37,7 +37,7 @@ If a schema with the given identifier already exists, an error response will be 
 }
 ```
 
-#### Invalid schema upload (not valid JSON):
+#### Invalid schema upload (not valid JSON)
 
 **Request**:
 
@@ -54,7 +54,7 @@ If a schema with the given identifier already exists, an error response will be 
 }
 ```
 
-#### Invalid schema upload (identifier already exists):
+#### Invalid schema upload (identifier already exists)
 
 **Request**:
 
@@ -71,7 +71,7 @@ If a schema with the given identifier already exists, an error response will be 
 }
 ```
 
-#### Valid schema upload (identifier exists, but override used):
+#### Valid schema upload (identifier exists, but override used)
 
 **Request**:
 
@@ -123,7 +123,7 @@ If it doesn't exist or cannot be retrieved, an error response is returned.
 }
 ```
 
-#### Invalid schema download (does not exist):
+#### Invalid schema download (schema doesn't exist)
 
 **Request**:
 

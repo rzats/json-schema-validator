@@ -21,6 +21,8 @@ If a schema with the given identifier already exists, an error response will be 
 
 ### Examples
 
+_Note: Sample files for the POST requests are found in the `examples` folder._
+
 #### Valid schema upload
 
 **Request**:

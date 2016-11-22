@@ -6,8 +6,9 @@ A REST service for validating JSON documents against JSON schemas. Uses [Spring 
 # Installation
 
 - `git clone https://github.com/rzats/json-schema-editor.git`
-- Run `./gradlew bootRun`. 
+- Run `./gradlew bootRun` to launch the REST service. 
   - The associated dependencies (along with a JDK) will be retrieved automatically.
+- Run `./gradlew test` to launch the unit test suite.
 
 # API endpoints
 

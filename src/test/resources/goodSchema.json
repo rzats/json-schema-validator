@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string"
+    },
+    "destination": {
+      "type": "string"
+    },
+    "timeout": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 32767
+    }
+  },
+  "required": ["source", "destination"]
+}

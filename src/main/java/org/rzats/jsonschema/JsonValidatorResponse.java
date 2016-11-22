@@ -1,6 +1,9 @@
 package org.rzats.jsonschema;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 
 /**
  * The POJO class used to store REST API responses.
@@ -43,5 +46,14 @@ public class JsonValidatorResponse {
 
     public String getMessage() {
         return message;
+    }
+
+    public String toJsonString() {
+        ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
+        try {
+            return ow.writeValueAsString(this);
+        } catch (JsonProcessingException e) {
+            return String.format("Exception while converting response to string: %s", e.getMessage());
+        }
     }
 }

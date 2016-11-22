@@ -10,9 +10,11 @@ import com.github.fge.jsonschema.core.report.ProcessingMessage;
 import com.github.fge.jsonschema.core.report.ProcessingReport;
 import com.github.fge.jsonschema.main.JsonSchema;
 import com.github.fge.jsonschema.main.JsonSchemaFactory;
-import org.rocksdb.Options;
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
+import org.rzats.jsonschema.database.DatabaseProvider;
+import org.rzats.jsonschema.database.DatabaseProviderException;
+import org.rzats.jsonschema.database.RocksDbProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.web.ErrorController;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,9 +23,9 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.nio.file.Paths;
 
 /**
  * The main REST controller. Processes all the API endpoints, as well as error handling.
@@ -35,33 +37,8 @@ public class JsonValidatorController implements ErrorController {
     private static final String SCHEMA_PATH = "/schema";
     private static final String VALIDATE_PATH = "/validate";
 
-    /**
-     * Factory method for the RocksDB Options object.
-     * Being a C++ object, the options should be disposed using a try-with-resources block (or Options.close()).
-     *
-     * @return The Options object.
-     */
-    private static Options createDatabaseOptions() {
-        return new Options().setCreateIfMissing(true);
-    }
-
-    /**
-     * Factory method for the RocksDB connection handle.
-     * Being a C++ object, the handle should be disposed using a try-with-resources block (or RocksDB.close()).
-     *
-     * @param databaseOptions The RocksDB Options object. Create an instance of this using {@link #createDatabaseOptions}.
-     * @return The RocksDB connection handle.
-     * @throws RocksDBException if a database connection could not be established.
-     */
-    private static RocksDB createDatabaseConnection(Options databaseOptions) throws RocksDBException {
-        return RocksDB.open(databaseOptions, Paths.get("").toAbsolutePath().toString() + "/rocksdb");
-    }
-
-    /**
-     * Converts a {@link JsonValidatorResponse} instance to a JSON string.
-     *
-     * @return A JSON string.
-     */
+    @Autowired
+    private DatabaseProvider databaseProvider;
 
     /**
      * Creates a {@link JsonValidatorResponse} instance from the given parameters and returns it as a JSON string.
@@ -73,13 +50,7 @@ public class JsonValidatorController implements ErrorController {
      * @return The JSON string representation of the constructed {@link JsonValidatorResponse}.
      */
     private static String responseAsString(String action, String id, String status, String message) {
-        JsonValidatorResponse response = new JsonValidatorResponse(action, id, status, message);
-        ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
-        try {
-            return ow.writeValueAsString(response);
-        } catch (JsonProcessingException e) {
-            return String.format("Exception while converting response to string: %s", e.getMessage());
-        }
+        return new JsonValidatorResponse(action, id, status, message).toJsonString();
     }
 
     /**
@@ -105,10 +76,9 @@ public class JsonValidatorController implements ErrorController {
      */
     @RequestMapping(method = RequestMethod.GET, value = SCHEMA_PATH + "/{SCHEMAID}", produces = JSON_CONTENT_TYPE)
     public String downloadSchema(@PathVariable(value = "SCHEMAID") String id) {
-        try (Options databaseOptions = createDatabaseOptions();
-             RocksDB databaseConnection = createDatabaseConnection(databaseOptions)) {
+        try {
             // Fetch the schema from the database
-            byte[] schemaBytes = databaseConnection.get(id.getBytes());
+            byte[] schemaBytes = databaseProvider.get(id.getBytes());
 
             if (schemaBytes == null) {
                 return responseAsString("downloadSchema", id, "error",
@@ -117,7 +87,7 @@ public class JsonValidatorController implements ErrorController {
 
             // Convert it to a string and return
             return new String(schemaBytes);
-        } catch (RocksDBException e) {
+        } catch (DatabaseProviderException e) {
             return responseAsString("downloadSchema", id, "error",
                     String.format("Database exception: %s", e.getMessage()));
         }
@@ -135,9 +105,8 @@ public class JsonValidatorController implements ErrorController {
     public String uploadSchema(@PathVariable(value = "SCHEMAID") String id,
                                @RequestParam(required = false, defaultValue = "0") int override,
                                @RequestBody String schema) {
-        try (Options databaseOptions = createDatabaseOptions();
-             RocksDB databaseConnection = createDatabaseConnection(databaseOptions)) {
-            if (override == 1 || databaseConnection.get(id.getBytes()) == null) {
+        try {
+            if (override == 1 || databaseProvider.get(id.getBytes()) == null) {
                 // Check if the schema is valid JSON (but not necessarily a valid schema)
                 ObjectMapper mapper = new ObjectMapper();
                 String prettySchema;
@@ -149,15 +118,14 @@ public class JsonValidatorController implements ErrorController {
                             String.format("Invalid JSON: %s", e.getMessage()));
                 }
 
-
                 // Upload the schema
-                databaseConnection.put(id.getBytes(), prettySchema.getBytes());
+                databaseProvider.put(id.getBytes(), prettySchema.getBytes());
                 return responseAsString("uploadSchema", id, "success", null);
             } else {
                 return responseAsString("uploadSchema", id, "error",
                         String.format("Schema with id %s already exists (use %s/SCHEMAID?override=1 to overwrite)", id, SCHEMA_PATH));
             }
-        } catch (RocksDBException e) {
+        } catch (DatabaseProviderException e) {
             return responseAsString("uploadSchema", id, "error",
                     String.format("Database exception: %s", e.getMessage()));
         }
@@ -173,10 +141,9 @@ public class JsonValidatorController implements ErrorController {
     @RequestMapping(method = RequestMethod.POST, value = VALIDATE_PATH + "/{SCHEMAID}", consumes = JSON_CONTENT_TYPE, produces = JSON_CONTENT_TYPE)
     public String validateDocument(@PathVariable(value = "SCHEMAID") String id,
                                    @RequestBody String json) {
-        try (Options databaseOptions = createDatabaseOptions();
-             RocksDB databaseConnection = createDatabaseConnection(databaseOptions)) {
+        try {
             // Fetch the schema from the database
-            byte[] schemaBytes = databaseConnection.get(id.getBytes());
+            byte[] schemaBytes = databaseProvider.get(id.getBytes());
 
             if (schemaBytes == null) {
                 return responseAsString("validateDocument", id, "error",
@@ -198,12 +165,12 @@ public class JsonValidatorController implements ErrorController {
                 return responseAsString("validateDocument", id, "success", null);
             } else {
                 StringBuilder messageBuilder = new StringBuilder();
-                for (ProcessingMessage message: report) {
+                for (ProcessingMessage message : report) {
                     messageBuilder.append(message);
                 }
                 return responseAsString("validateDocument", id, "error", messageBuilder.toString());
             }
-        } catch (RocksDBException e) {
+        } catch (DatabaseProviderException e) {
             return responseAsString("validateDocument", id, "error", String.format("Database exception: %s", e.getMessage()));
         } catch (IOException e) {
             return responseAsString("validateDocument", id, "error", String.format("Exception while processing JSON: %s", e.getMessage()));

@@ -9,7 +9,6 @@ import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 import com.github.fge.jsonschema.core.report.ProcessingReport;
 import com.github.fge.jsonschema.main.JsonSchema;
 import com.github.fge.jsonschema.main.JsonSchemaFactory;
-import org.apache.catalina.servlet4preview.http.HttpServletRequest;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -17,17 +16,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.web.ErrorController;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.context.request.RequestAttributes;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.Map;
 
 @RestController
-public class JsonValidatorController implements ErrorController{
+public class JsonValidatorController implements ErrorController {
     private static final Logger logger = LoggerFactory.getLogger(JsonValidatorController.class);
     private static final String JSON_CONTENT_TYPE = "application/json";
     private static final String ERROR_PATH = "/error";
@@ -48,10 +43,10 @@ public class JsonValidatorController implements ErrorController{
                 String.format("Invalid request (error code %s)", String.valueOf(response.getStatus())));
     }
 
-    @RequestMapping(method=RequestMethod.GET, value= SCHEMA_PATH + "{SCHEMAID}", produces=JSON_CONTENT_TYPE)
+    @RequestMapping(method = RequestMethod.GET, value = SCHEMA_PATH + "{SCHEMAID}", produces = JSON_CONTENT_TYPE)
     public String downloadSchema(@PathVariable(value = "SCHEMAID") String id) {
         try (Options databaseOptions = createDatabaseOptions();
-        RocksDB databaseConnection = createDatabaseConnection(databaseOptions)){
+             RocksDB databaseConnection = createDatabaseConnection(databaseOptions)) {
             byte[] schema = databaseConnection.get(id.getBytes());
             String schemaString = new String(schema);
             return schemaString;
@@ -69,10 +64,10 @@ public class JsonValidatorController implements ErrorController{
 
     }
 
-    @RequestMapping(method= RequestMethod.POST, value= SCHEMA_PATH + "{SCHEMAID}", consumes = JSON_CONTENT_TYPE,produces=JSON_CONTENT_TYPE)
+    @RequestMapping(method = RequestMethod.POST, value = SCHEMA_PATH + "{SCHEMAID}", consumes = JSON_CONTENT_TYPE, produces = JSON_CONTENT_TYPE)
     public JsonValidatorResponse uploadSchema(@PathVariable(value = "SCHEMAID") String id, @RequestBody String schema) {
         try (Options databaseOptions = createDatabaseOptions();
-             RocksDB databaseConnection = createDatabaseConnection(databaseOptions)){
+             RocksDB databaseConnection = createDatabaseConnection(databaseOptions)) {
             databaseConnection.put(id.getBytes(), schema.getBytes());
             return new JsonValidatorResponse("uploadSchema", id, "success", null);
         } catch (RocksDBException e) {
@@ -81,10 +76,10 @@ public class JsonValidatorController implements ErrorController{
         return null;
     }
 
-    @RequestMapping(method= RequestMethod.POST, value=VALIDATE_PATH + "{SCHEMAID}", consumes=JSON_CONTENT_TYPE, produces=JSON_CONTENT_TYPE)
+    @RequestMapping(method = RequestMethod.POST, value = VALIDATE_PATH + "{SCHEMAID}", consumes = JSON_CONTENT_TYPE, produces = JSON_CONTENT_TYPE)
     public JsonValidatorResponse validateDocument(@PathVariable(value = "SCHEMAID") String id, @RequestBody String json) {
         try (Options databaseOptions = createDatabaseOptions();
-             RocksDB databaseConnection = createDatabaseConnection(databaseOptions)){
+             RocksDB databaseConnection = createDatabaseConnection(databaseOptions)) {
             byte[] schemaBytes = databaseConnection.get(id.getBytes());
             String schemaString = new String(schemaBytes);
             JsonNode schemaNode = JsonLoader.fromString(schemaString);

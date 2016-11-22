@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.github.fge.jackson.JsonLoader;
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
+import com.github.fge.jsonschema.core.report.ProcessingMessage;
 import com.github.fge.jsonschema.core.report.ProcessingReport;
 import com.github.fge.jsonschema.main.JsonSchema;
 import com.github.fge.jsonschema.main.JsonSchemaFactory;
@@ -110,14 +111,14 @@ public class JsonValidatorController implements ErrorController {
             byte[] schemaBytes = databaseConnection.get(id.getBytes());
 
             if (schemaBytes == null) {
-                return responseAsString("uploadSchema", id, "error",
+                return responseAsString("downloadSchema", id, "error",
                         String.format("Schema with id %s doesn't exist", id));
             }
 
             // Convert it to a string and return
             return new String(schemaBytes);
         } catch (RocksDBException e) {
-            return responseAsString("uploadSchema", id, "error",
+            return responseAsString("downloadSchema", id, "error",
                     String.format("Database exception: %s", e.getMessage()));
         }
     }
@@ -178,7 +179,7 @@ public class JsonValidatorController implements ErrorController {
             byte[] schemaBytes = databaseConnection.get(id.getBytes());
 
             if (schemaBytes == null) {
-                return responseAsString("uploadSchema", id, "error",
+                return responseAsString("validateDocument", id, "error",
                         String.format("Schema with id %s doesn't exist", id));
             }
 
@@ -196,7 +197,11 @@ public class JsonValidatorController implements ErrorController {
             if (report.isSuccess()) {
                 return responseAsString("validateDocument", id, "success", null);
             } else {
-                return responseAsString("validateDocument", id, "error", report.toString());
+                StringBuilder messageBuilder = new StringBuilder();
+                for (ProcessingMessage message: report) {
+                    messageBuilder.append(message);
+                }
+                return responseAsString("validateDocument", id, "error", messageBuilder.toString());
             }
         } catch (RocksDBException e) {
             return responseAsString("validateDocument", id, "error", String.format("Database exception: %s", e.getMessage()));
